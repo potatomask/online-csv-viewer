@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Online Viewer - Free Browser CSV Viewer (No Upload)</title>
+    <meta name="description" content="Open and view CSV files directly in your browser with drag-and-drop for free, sortable columns, and resizable rows and columns. No server upload required.">
+    <meta name="keywords" content="CSV viewer, online CSV viewer, browser CSV reader, CSV table viewer, client-side CSV, no upload CSV, free csv viewer, free online csv viewer, csv file viewer, csv viewer online, csv viewer browser, csv viewer no upload">
+    <meta name="author" content="CSV Online Viewer">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="googlebot" content="index, follow">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="theme-color" content="#f1f3f4">
+    <meta name="application-name" content="CSV Online Viewer">
+
+    <link rel="canonical" href="https://example.com/csv-online-viewer">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="CSV Online Viewer">
+    <meta property="og:title" content="CSV Online Viewer - Free Browser CSV Viewer (No Upload)">
+    <meta property="og:description" content="Drag and drop CSV files to view, sort, and resize data in a Google Sheets-like interface. Everything runs locally in your browser.">
+    <meta property="og:url" content="https://example.com/csv-online-viewer">
+    <meta property="og:locale" content="en_US">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CSV Online Viewer - Free Browser CSV Viewer (No Upload)">
+    <meta name="twitter:description" content="View CSV files instantly with sorting and resizing, fully client-side.">
+
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "CSV Online Viewer",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Any",
+            "url": "https://example.com/csv-online-viewer",
+            "description": "A browser-based CSV viewer with drag-and-drop import, sortable columns, and resizable rows and columns. Files stay on the client side.",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+            },
+            "featureList": [
+                "Client-side CSV processing",
+                "Drag and drop file upload",
+                "Sortable columns",
+                "Resizable columns",
+                "Resizable rows"
+            ]
+        }
+    </script>
+    <style>
+        :root {
+            --bg: #f1f3f4;
+            --panel: #ffffff;
+            --grid: #dadce0;
+            --header: #f8f9fa;
+            --text: #202124;
+            --muted: #5f6368;
+            --accent: #1a73e8;
+            --row-index-width: 56px;
+            --cell-h: 36px;
+            --cell-px: 10px;
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 28px 14px 16px;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 30px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            transition: font-size 160ms ease, margin 160ms ease;
+        }
+
+        .shrink-title {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .drop-area {
+            border: 2px dashed #8ab4f8;
+            border-radius: 16px;
+            background: #fff;
+            width: min(520px, 94vw);
+            height: 160px;
+            display: grid;
+            place-items: center;
+            text-align: center;
+            color: #1967d2;
+            font-size: 18px;
+            margin: 0 0 14px;
+            cursor: pointer;
+            transition: border-color 140ms ease, background 140ms ease, width 180ms ease, height 180ms ease, font-size 180ms ease;
+            box-shadow: 0 8px 24px rgba(32, 33, 36, 0.07);
+            padding: 10px;
+        }
+
+        .drop-area:hover,
+        .drop-area.dragover {
+            border-color: #1a73e8;
+            background: #f7faff;
+        }
+
+        .drop-area.shrink {
+            width: min(360px, 94vw);
+            height: 56px;
+            font-size: 14px;
+        }
+
+        #csvFile {
+            display: none;
+        }
+
+        #tableContainer {
+            width: 95vw;
+            height: calc(95vh - 160px);
+            min-height: 420px;
+        }
+
+        .sheet-shell {
+            background: var(--panel);
+            border: 1px solid var(--grid);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 10px 26px rgba(32, 33, 36, 0.08);
+            height: 100%;
+        }
+
+        .sheet-toolbar {
+            height: 42px;
+            border-bottom: 1px solid var(--grid);
+            background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .sheet-wrap {
+            height: calc(100% - 42px);
+            overflow: auto;
+            background: #fff;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            min-width: 100%;
+        }
+
+        col.row-index-col {
+            width: var(--row-index-width);
+        }
+
+        th,
+        td {
+            border-right: 1px solid var(--grid);
+            border-bottom: 1px solid var(--grid);
+            height: var(--cell-h);
+            line-height: 1.25;
+            padding: 6px var(--cell-px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 13px;
+            background: #fff;
+            vertical-align: middle;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 4;
+            background: var(--header);
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .corner-cell {
+            left: 0;
+            z-index: 6;
+            text-align: center;
+            color: var(--muted);
+            background: #f1f3f4;
+        }
+
+        .row-index {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            text-align: right;
+            color: var(--muted);
+            padding-right: 12px;
+            background: #f8f9fa;
+            font-variant-numeric: tabular-nums;
+            overflow: visible;
+        }
+
+        .row-resizer {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            transform: translateY(50%);
+            width: 100%;
+            height: 10px;
+            cursor: row-resize;
+            z-index: 20;
+            touch-action: none;
+            background: transparent;
+        }
+
+        .row-resizer:hover,
+        .row-resizer.active {
+            background: rgba(26, 115, 232, 0.12);
+        }
+
+        .col-header {
+            position: relative;
+            padding-right: 22px;
+        }
+
+        .col-header.sortable {
+            cursor: pointer;
+        }
+
+        .col-header.sorted-asc::after,
+        .col-header.sorted-desc::after {
+            position: absolute;
+            right: 7px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--accent);
+            font-size: 10px;
+        }
+
+        .col-header.sorted-asc::after {
+            content: "▲";
+        }
+
+        .col-header.sorted-desc::after {
+            content: "▼";
+        }
+
+        .resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 12px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 7;
+            touch-action: none;
+        }
+
+        .resizer::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 5px;
+            width: 2px;
+            height: 100%;
+            background: rgba(95, 99, 104, 0.28);
+            transition: background 120ms ease;
+        }
+
+        .resizer:hover,
+        .resizer.active {
+            background: rgba(26, 115, 232, 0.12);
+        }
+
+        .resizer:hover::before,
+        .resizer.active::before {
+            background: rgba(26, 115, 232, 0.95);
+        }
+
+        .resize-guide {
+            position: fixed;
+            top: 0;
+            width: 2px;
+            height: 100vh;
+            background: var(--accent);
+            opacity: 0.35;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .row-resize-guide {
+            position: fixed;
+            left: 0;
+            height: 2px;
+            width: 100vw;
+            background: var(--accent);
+            opacity: 0.35;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        tbody tr:hover td {
+            background: #f8fbff;
+        }
+
+        .sheet-empty {
+            padding: 26px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        @media (max-width: 700px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            .drop-area {
+                height: 120px;
+                font-size: 16px;
+            }
+
+            .drop-area.shrink {
+                height: 48px;
+                font-size: 13px;
+            }
+
+            #tableContainer {
+                width: 99vw;
+                height: calc(95vh - 140px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 id="mainTitle">CSV Online Viewer</h1>
+    <div class="drop-area" id="dropArea">
+        <span id="dropText">Drag & Drop CSV file here<br>or <b>click to select</b></span>
+        <input type="file" id="csvFile" accept=".csv" />
+    </div>
+    <div id="tableContainer"></div>
+    <script>
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('csvFile');
+        const tableContainer = document.getElementById('tableContainer');
+        const mainTitle = document.getElementById('mainTitle');
+        const dropText = document.getElementById('dropText');
+
+        const state = {
+            headers: [],
+            dataRows: [],
+            colWidths: [],
+            rowHeights: [],
+            sortCol: null,
+            sortDir: 1
+        };
+        let isResizingColumn = false;
+        let suppressSortUntil = 0;
+
+        // CSV parsing that handles quoted commas
+        function parseCSVRows(text) {
+            const rows = [];
+            let row = [], cell = '', inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                if (char === '"') {
+                    if (inQuotes && text[i+1] === '"') {
+                        cell += '"'; i++; // Escaped quote
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    row.push(cell); cell = '';
+                } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                    if (cell !== '' || row.length > 0) row.push(cell);
+                    if (row.length > 0) rows.push(row);
+                    row = []; cell = '';
+                    if (char === '\r' && text[i+1] === '\n') i++;
+                } else {
+                    cell += char;
+                }
+            }
+            if (cell !== '' || row.length > 0) row.push(cell);
+            if (row.length > 0) rows.push(row);
+            return rows;
+        }
+
+        function detectColumnCount(rows) {
+            let maxCols = 0;
+            for (const row of rows) {
+                if (row.length > maxCols) maxCols = row.length;
+            }
+            return maxCols;
+        }
+
+        function normalizeRows(rows, colCount) {
+            return rows.map((row) => {
+                if (row.length === colCount) return row;
+                const padded = row.slice();
+                while (padded.length < colCount) padded.push('');
+                return padded;
+            });
+        }
+
+        function numToLetters(index) {
+            let n = index + 1;
+            let label = '';
+            while (n > 0) {
+                const rem = (n - 1) % 26;
+                label = String.fromCharCode(65 + rem) + label;
+                n = Math.floor((n - 1) / 26);
+            }
+            return label;
+        }
+
+        function initialColumnWidths(headers, sampleRows) {
+            const widths = [];
+            for (let i = 0; i < headers.length; i++) {
+                let maxLen = (headers[i] || '').length;
+                const limit = Math.min(sampleRows.length, 120);
+                for (let r = 0; r < limit; r++) {
+                    const len = (sampleRows[r][i] || '').length;
+                    if (len > maxLen) maxLen = len;
+                }
+                widths.push(Math.min(380, Math.max(90, maxLen * 8 + 28)));
+            }
+            return widths;
+        }
+
+        function compareValues(a, b) {
+            const av = (a ?? '').toString().trim();
+            const bv = (b ?? '').toString().trim();
+            const an = Number(av.replace(/,/g, ''));
+            const bn = Number(bv.replace(/,/g, ''));
+            const aIsNum = av !== '' && Number.isFinite(an);
+            const bIsNum = bv !== '' && Number.isFinite(bn);
+            if (aIsNum && bIsNum) return an - bn;
+            return av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+        }
+
+        function renderBody(tbody) {
+            const fragment = document.createDocumentFragment();
+            for (let r = 0; r < state.dataRows.length; r++) {
+                const tr = document.createElement('tr');
+
+                const idx = document.createElement('th');
+                idx.className = 'row-index';
+                idx.scope = 'row';
+                idx.textContent = String(r + 1);
+                const savedHeight = state.rowHeights[r];
+                if (savedHeight) {
+                    idx.style.height = savedHeight + 'px';
+                }
+
+                const rowResizer = document.createElement('div');
+                rowResizer.className = 'row-resizer';
+                idx.appendChild(rowResizer);
+
+                tr.appendChild(idx);
+
+                const row = state.dataRows[r];
+                for (let c = 0; c < state.headers.length; c++) {
+                    const td = document.createElement('td');
+                    td.textContent = row[c] || '';
+                    if (savedHeight) {
+                        td.style.height = savedHeight + 'px';
+                    }
+                    tr.appendChild(td);
+                }
+
+                if (savedHeight) {
+                    tr.style.height = savedHeight + 'px';
+                }
+
+                attachRowResize(rowResizer, tr, r);
+                fragment.appendChild(tr);
+            }
+            tbody.replaceChildren(fragment);
+        }
+
+        function attachRowResize(resizer, tr, rowIdx) {
+            resizer.addEventListener('mousedown', (event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+
+                const startY = event.clientY;
+                const startH = tr.getBoundingClientRect().height;
+                let pendingHeight = startH;
+                let rafId = 0;
+
+                resizer.classList.add('active');
+
+                const guide = document.createElement('div');
+                guide.className = 'row-resize-guide';
+                guide.style.top = event.clientY + 'px';
+                document.body.appendChild(guide);
+
+                const applyHeight = (heightValue) => {
+                    tr.style.height = heightValue + 'px';
+                    Array.from(tr.cells).forEach((cell) => {
+                        cell.style.height = heightValue + 'px';
+                    });
+                };
+
+                const onMove = (moveEvent) => {
+                    pendingHeight = Math.max(26, startH + (moveEvent.clientY - startY));
+                    if (!rafId) {
+                        rafId = requestAnimationFrame(() => {
+                            applyHeight(pendingHeight);
+                            guide.style.top = (startY + (pendingHeight - startH)) + 'px';
+                            rafId = 0;
+                        });
+                    }
+                };
+
+                const onUp = () => {
+                    if (rafId) cancelAnimationFrame(rafId);
+                    state.rowHeights[rowIdx] = pendingHeight;
+                    applyHeight(pendingHeight);
+                    resizer.classList.remove('active');
+                    document.body.removeChild(guide);
+                    window.removeEventListener('mousemove', onMove);
+                    window.removeEventListener('mouseup', onUp);
+                };
+
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp, { once: true });
+            });
+        }
+
+        function applyColWidths(table) {
+            const cols = table.querySelectorAll('col[data-col]');
+            cols.forEach((colEl) => {
+                const idx = Number(colEl.dataset.col);
+                colEl.style.width = state.colWidths[idx] + 'px';
+            });
+        }
+
+        function sortByColumn(colIdx, headerRow, tbody) {
+            if (state.sortCol === colIdx) {
+                state.sortDir *= -1;
+            } else {
+                state.sortCol = colIdx;
+                state.sortDir = 1;
+            }
+
+            state.dataRows.sort((a, b) => state.sortDir * compareValues(a[colIdx], b[colIdx]));
+            renderBody(tbody);
+
+            headerRow.querySelectorAll('.col-header').forEach((cell, idx) => {
+                cell.classList.remove('sorted-asc', 'sorted-desc');
+                if (idx === state.sortCol) {
+                    cell.classList.add(state.sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+                }
+            });
+        }
+
+        function attachResize(resizer, colIdx, table) {
+            resizer.addEventListener('mousedown', (event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                isResizingColumn = true;
+
+                const startX = event.clientX;
+                const startW = state.colWidths[colIdx];
+                let pendingWidth = startW;
+                let rafId = 0;
+
+                resizer.classList.add('active');
+
+                const guide = document.createElement('div');
+                guide.className = 'resize-guide';
+                guide.style.left = event.clientX + 'px';
+                document.body.appendChild(guide);
+
+                const updateGuide = () => {
+                    guide.style.left = (startX + (pendingWidth - startW)) + 'px';
+                };
+
+                const onMove = (moveEvent) => {
+                    pendingWidth = Math.max(68, startW + (moveEvent.clientX - startX));
+                    if (!rafId) {
+                        rafId = requestAnimationFrame(() => {
+                            state.colWidths[colIdx] = pendingWidth;
+                            applyColWidths(table);
+                            updateGuide();
+                            rafId = 0;
+                        });
+                    }
+                };
+
+                const onUp = () => {
+                    if (rafId) cancelAnimationFrame(rafId);
+                    state.colWidths[colIdx] = pendingWidth;
+                    applyColWidths(table);
+                    resizer.classList.remove('active');
+                    document.body.removeChild(guide);
+                    isResizingColumn = false;
+                    suppressSortUntil = Date.now() + 140;
+                    window.removeEventListener('mousemove', onMove);
+                    window.removeEventListener('mouseup', onUp);
+                };
+
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp, { once: true });
+            });
+        }
+
+        function buildSheet() {
+            if (!state.headers.length) {
+                tableContainer.innerHTML = '<div class="sheet-empty">No data to display.</div>';
+                return;
+            }
+
+            const shell = document.createElement('section');
+            shell.className = 'sheet-shell';
+
+            const toolbar = document.createElement('div');
+            toolbar.className = 'sheet-toolbar';
+            toolbar.innerHTML = '<span>Sheet View</span><span>' + state.dataRows.length + ' rows • ' + state.headers.length + ' columns</span>';
+            shell.appendChild(toolbar);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'sheet-wrap';
+
+            const table = document.createElement('table');
+
+            const colgroup = document.createElement('colgroup');
+            const rowIdxCol = document.createElement('col');
+            rowIdxCol.className = 'row-index-col';
+            colgroup.appendChild(rowIdxCol);
+            for (let c = 0; c < state.headers.length; c++) {
+                const col = document.createElement('col');
+                col.dataset.col = String(c);
+                colgroup.appendChild(col);
+            }
+            table.appendChild(colgroup);
+
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+
+            const corner = document.createElement('th');
+            corner.className = 'corner-cell';
+            corner.textContent = '';
+            headerRow.appendChild(corner);
+
+            state.headers.forEach((label, idx) => {
+                const th = document.createElement('th');
+                th.className = 'col-header sortable';
+                th.title = label;
+                const letter = numToLetters(idx);
+                th.textContent = letter + '  ' + label;
+
+                th.addEventListener('click', (event) => {
+                    if (isResizingColumn || Date.now() < suppressSortUntil) return;
+                    if (event.target.classList.contains('resizer')) return;
+                    sortByColumn(idx, headerRow, tbody);
+                });
+
+                const resizer = document.createElement('div');
+                resizer.className = 'resizer';
+                attachResize(resizer, idx, table);
+                th.appendChild(resizer);
+
+                headerRow.appendChild(th);
+            });
+
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            renderBody(tbody);
+            table.appendChild(tbody);
+
+            applyColWidths(table);
+
+            wrap.appendChild(table);
+            shell.appendChild(wrap);
+
+            tableContainer.innerHTML = '';
+            tableContainer.appendChild(shell);
+        }
+
+        function parseCSV(text) {
+            const rows = parseCSVRows(text);
+            if (!rows.length) {
+                tableContainer.innerHTML = '<div class="sheet-empty">No rows found in this CSV.</div>';
+                return;
+            }
+
+            const colCount = detectColumnCount(rows);
+            const normalized = normalizeRows(rows, colCount);
+
+            state.headers = normalized[0].map((h, i) => (h && h.trim() ? h.trim() : 'Column ' + (i + 1)));
+            state.dataRows = normalized.slice(1);
+            state.colWidths = initialColumnWidths(state.headers, state.dataRows);
+            state.rowHeights = [];
+            state.sortCol = null;
+            state.sortDir = 1;
+
+            buildSheet();
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                parseCSV(event.target.result);
+                dropArea.classList.add('shrink');
+                mainTitle.classList.add('shrink-title');
+                dropText.innerHTML = 'Upload another CSV';
+            };
+            reader.readAsText(file);
+        }
+
+        // Drag and drop events
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.classList.add('dragover');
+        });
+        dropArea.addEventListener('dragleave', (e) => {
+            dropArea.classList.remove('dragover');
+        });
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+        // Click to open file dialog
+        dropArea.addEventListener('click', () => {
+            fileInput.value = '';
+            fileInput.click();
+        });
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+    </script>
+</body>
+</html>
